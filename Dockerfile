@@ -1,10 +1,16 @@
 # ===== Stage 1: Build Vite =====
 FROM node:18 AS node-builder
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install
+
+# 🔥 COPY ENV CHO VITE
+COPY .env.production .env
+
 COPY . .
 RUN npm run build
+
 
 # ===== Stage 2: PHP =====
 FROM php:8.1-cli
@@ -17,16 +23,15 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
-# Copy source
 COPY . .
 
-# Copy build Vite
+# 🔥 COPY BUILD TỪ VITE
 COPY --from=node-builder /app/public/build /app/public/build
 
 RUN composer install --no-dev --optimize-autoloader
 
-# 🔥 CỰC KỲ QUAN TRỌNG
-RUN php artisan config:clear \
+RUN php artisan key:generate \
+ && php artisan config:clear \
  && php artisan view:clear \
  && php artisan route:clear
 
