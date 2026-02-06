@@ -1,6 +1,4 @@
-# ===============================
-# STAGE 1: BUILD VITE
-# ===============================
+# ===== STAGE 1: BUILD VITE =====
 FROM node:18 AS node-builder
 WORKDIR /app
 
@@ -10,9 +8,8 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# ===============================
-# STAGE 2: PHP
-# ===============================
+
+# ===== STAGE 2: LARAVEL =====
 FROM php:8.1-cli
 
 RUN apt-get update && apt-get install -y \
@@ -28,13 +25,7 @@ COPY . .
 COPY --from=node-builder /app/public/build /app/public/build
 
 RUN composer install --no-dev --optimize-autoloader
-
-# 🔥 APP KEY (CỰC QUAN TRỌNG)
-RUN php artisan key:generate --force
-
-RUN php artisan config:clear \
- && php artisan view:clear \
- && php artisan route:clear
+RUN php artisan optimize:clear
 
 EXPOSE 10000
 CMD php artisan serve --host=0.0.0.0 --port=10000
