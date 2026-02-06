@@ -5,9 +5,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# 🔥 COPY ENV CHO VITE
-COPY .env.production .env
-
 COPY . .
 RUN npm run build
 
@@ -22,16 +19,14 @@ RUN apt-get update && apt-get install -y \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
-
 COPY . .
 
-# 🔥 COPY BUILD TỪ VITE
+# COPY Vite build
 COPY --from=node-builder /app/public/build /app/public/build
 
 RUN composer install --no-dev --optimize-autoloader
 
-RUN php artisan key:generate \
- && php artisan config:clear \
+RUN php artisan config:clear \
  && php artisan view:clear \
  && php artisan route:clear
 
