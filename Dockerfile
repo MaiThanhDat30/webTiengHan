@@ -20,10 +20,15 @@ WORKDIR /app
 # Copy source
 COPY . .
 
-# Copy build Vite từ stage 1
+# Copy build Vite
 COPY --from=node-builder /app/public/build /app/public/build
 
 RUN composer install --no-dev --optimize-autoloader
+
+# 🔥 CỰC KỲ QUAN TRỌNG
+RUN php artisan config:clear \
+ && php artisan view:clear \
+ && php artisan route:clear
 
 EXPOSE 10000
 CMD php artisan serve --host=0.0.0.0 --port=10000
