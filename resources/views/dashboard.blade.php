@@ -1,0 +1,222 @@
+@extends('layouts.app')
+
+@section('content')
+    <div class="space-y-10">
+
+        {{-- TIÊU ĐỀ --}}
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">
+                📊 Dashboard học tập
+            </h2>
+            <p class="text-gray-500 mt-1">
+                Theo dõi tiến độ – đánh giá trình độ – cá nhân hóa lộ trình học
+            </p>
+        </div>
+
+        {{-- THỐNG KÊ NHANH --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-white rounded-2xl shadow p-6">
+                <p class="text-sm text-gray-500">📘 Tổng từ đã học</p>
+                <p class="text-4xl font-bold text-indigo-600 mt-2">
+                    {{ $totalLearned }}
+                </p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow p-6">
+                <p class="text-sm text-gray-500">⏰ Từ cần ôn</p>
+                <p class="text-4xl font-bold text-amber-500 mt-2">
+                    {{ $needReview }}
+                </p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow p-6">
+                <p class="text-sm text-gray-500">🔥 Hoạt động hôm nay</p>
+                <p class="text-4xl font-bold text-emerald-500 mt-2">
+                    {{ $todayActivity }}
+                </p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow p-6">
+                <p class="text-sm text-gray-500">🎯 Độ chính xác</p>
+                <p class="text-4xl font-bold text-green-600 mt-2">
+                    {{ $accuracy }}%
+                </p>
+            </div>
+        </div>
+
+        {{-- ĐÁNH GIÁ TRÌNH ĐỘ --}}
+        <div class="bg-white rounded-2xl shadow p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                🧠 Đánh giá trình độ hiện tại
+            </h3>
+
+            <div class="flex items-center gap-4">
+                <span class="px-4 py-2 rounded-full text-white text-sm font-semibold
+                        @if($level == 'Yếu') bg-rose-500
+                        @elseif($level == 'Trung bình') bg-amber-500
+                        @elseif($level == 'Khá') bg-sky-500
+                        @else bg-emerald-500
+                        @endif">
+                    {{ $level }}
+                </span>
+
+                <p class="text-sm text-gray-500">
+                    Đúng {{ $todayCorrect }} • Sai {{ $todayWrong }}
+                </p>
+            </div>
+        </div>
+
+        {{-- GỢI Ý LỘ TRÌNH --}}
+        <div class="bg-gradient-to-r from-indigo-500 to-purple-500
+                        text-white rounded-2xl shadow p-6">
+            <h3 class="font-bold text-lg mb-1">
+                📌 Gợi ý lộ trình hôm nay
+            </h3>
+            <p class="text-sm opacity-90">
+                {{ $suggestion }}
+            </p>
+        </div>
+
+        {{-- BIỂU ĐỒ + TỪ YẾU --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {{-- BIỂU ĐỒ --}}
+            <div class="bg-white rounded-2xl shadow p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    📈 Hoạt động 7 ngày gần nhất
+                </h3>
+                <canvas id="activityChart" height="200"></canvas>
+            </div>
+
+            {{-- TỪ VỰNG CÁ NHÂN HAY SAI --}}
+            <div class="bg-white rounded-2xl shadow p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    ⚠️ Từ vựng hay sai / hay quên (của bạn)
+                </h3>
+
+                @if($problemVocabs->isEmpty())
+                    <p class="text-gray-400 text-sm">
+                        Không có từ nào đáng lo 🎉
+                    </p>
+                @else
+                    <div class="space-y-3">
+                        @foreach($problemVocabs as $vocab)
+                            <div class="flex justify-between items-center border-b pb-2">
+                                <div>
+                                    <p class="font-semibold text-lg">
+                                        {{ $vocab->word_kr }}
+                                    </p>
+                                    <p class="text-xs text-gray-500">
+                                        Sai {{ $vocab->wrongs }}/{{ $vocab->total }} lần
+                                    </p>
+                                </div>
+
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold text-white
+                                                        {{ $vocab->tag == 'Hay quên' ? 'bg-rose-500' : 'bg-amber-500' }}">
+                                    {{ $vocab->tag }}
+                                </span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        </div>
+
+       {{-- 🏆 BXH TỪ KHÓ / HAY SAI (TOÀN HỆ THỐNG) --}}
+<div class="bg-white rounded-2xl shadow p-6 mt-8">
+    <h3 class="text-lg font-bold text-gray-800 mb-4">
+        🏆 Top từ vựng khó 
+    </h3>
+
+    @if($globalWrongRanking->isEmpty())
+        <p class="text-gray-400 text-sm">
+            Chưa đủ dữ liệu để xếp hạng
+        </p>
+    @else
+        <div class="space-y-3">
+            @foreach($globalWrongRanking as $index => $word)
+                <div class="flex items-center gap-4 border rounded-xl px-4 py-3">
+
+                    {{-- HẠNG --}}
+                    <span class="font-bold text-lg
+                        {{ $index == 0 ? 'text-yellow-500' : '' }}
+                        {{ $index == 1 ? 'text-gray-500' : '' }}
+                        {{ $index == 2 ? 'text-amber-600' : '' }}
+                    ">
+                        #{{ $index + 1 }}
+                    </span>
+
+                    {{-- TỪ --}}
+                    <span class="text-lg font-semibold text-gray-800">
+                        {{ $word->word_kr }}
+                    </span>
+
+                    {{-- ICON TOP --}}
+                    @if($index == 0)
+                        <span class="ml-auto text-yellow-500 font-bold">👑</span>
+                    @elseif($index <= 2)
+                        <span class="ml-auto text-rose-500 font-bold">🔥</span>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
+</div>
+
+
+
+        {{-- 9️⃣ CÂU QUÁN DỤNG NGỮ / MẪU CÂU TOPIK --}}
+        <div class="bg-gradient-to-r from-emerald-500 to-teal-500
+                        text-white rounded-2xl shadow p-6">
+            <h3 class="font-bold text-lg mb-4">
+                💡 Câu quán dụng ngữ / mẫu câu hay gặp TOPIK
+            </h3>
+
+            @if($idiomSuggestions->isEmpty())
+                <p class="text-sm opacity-80">
+                    Chưa có dữ liệu mẫu câu
+                </p>
+            @else
+                <div class="space-y-4">
+                    @foreach($idiomSuggestions as $idiom)
+                        <div class="bg-white/15 rounded-xl p-4">
+                            <p class="text-lg font-semibold">
+                                {{ $idiom->expression }}
+                            </p>
+                            <p class="text-sm opacity-90">
+                                {{ $idiom->meaning_vi }}
+                            </p>
+                            @if($idiom->example)
+                                <p class="text-sm italic opacity-80 mt-1">
+                                    {{ $idiom->example }}
+                                </p>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+    </div>
+
+    {{-- CHART JS --}}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        new Chart(document.getElementById('activityChart'), {
+            type: 'line',
+            data: {
+                labels: {!! json_encode($last7Days->pluck('date')) !!},
+                datasets: [{
+                    data: {!! json_encode($last7Days->pluck('total')) !!},
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    </script>
+@endsection
