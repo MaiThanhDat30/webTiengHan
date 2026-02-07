@@ -1,7 +1,12 @@
-import { defineConfig } from 'vite'
-import laravel from 'laravel-vite-plugin'
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
 
 export default defineConfig({
+    build: {
+        outDir: 'public/build',
+        manifest: 'manifest.json', // 👈 ÉP ra ROOT
+        emptyOutDir: true,
+    },
     plugins: [
         laravel({
             input: [
@@ -11,10 +16,4 @@ export default defineConfig({
             refresh: true,
         }),
     ],
-
-    build: {
-        manifest: true,          // 🔥 BẮT BUỘC
-        outDir: 'public/build',  // 🔥 Laravel đọc ở đây
-        emptyOutDir: true,
-    },
-})
+});
