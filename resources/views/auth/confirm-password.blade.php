@@ -1,27 +1,43 @@
-<x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-        {{ __('This is a secure area of the application. Please confirm your password before continuing.') }}
-    </div>
+@extends('layouts.guest')
+
+@section('title', 'Xác nhận mật khẩu')
+
+@section('content')
+<div class="bg-white p-6 rounded-xl shadow-md w-full max-w-md">
+    <h1 class="text-xl font-bold mb-4 text-center">🔒 Xác nhận mật khẩu</h1>
+
+    <p class="text-sm text-gray-600 mb-4 text-center">
+        Đây là khu vực bảo mật.  
+        Vui lòng nhập lại mật khẩu để tiếp tục.
+    </p>
 
     <form method="POST" action="{{ route('password.confirm') }}">
         @csrf
 
         <!-- Password -->
         <div>
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <label for="password" class="block text-sm font-medium text-gray-700">
+                Mật khẩu
+            </label>
+            <input
+                id="password"
+                type="password"
+                name="password"
+                required
+                autocomplete="current-password"
+                class="mt-1 block w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+            >
+            @error('password')
+                <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+            @enderror
         </div>
 
-        <div class="flex justify-end mt-4">
-            <x-primary-button>
-                {{ __('Confirm') }}
-            </x-primary-button>
-        </div>
+        <button
+            type="submit"
+            class="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+        >
+            Xác nhận
+        </button>
     </form>
-</x-guest-layout>
+</div>
+@endsection
