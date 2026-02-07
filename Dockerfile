@@ -21,11 +21,17 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 COPY . .
 
-# 🔥 COPY BUILD VITE
+# COPY VITE BUILD
 COPY --from=node-builder /app/public/build /app/public/build
 
+# FIX PERMISSION (RẤT QUAN TRỌNG)
+RUN chmod -R 755 public/build
+RUN chmod -R 777 storage bootstrap/cache
+
 RUN composer install --no-dev --optimize-autoloader
-RUN php artisan optimize:clear
+RUN php artisan optimize:clear || true
 
 EXPOSE 10000
-CMD php artisan serve --host=0.0.0.0 --port=10000
+
+# ❗ KHÔNG DÙNG artisan serve
+CMD php -S 0.0.0.0:10000 -t public
