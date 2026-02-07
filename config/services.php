@@ -20,9 +20,11 @@ return [
         'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
         'scheme' => 'https',
     ],
+    
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],

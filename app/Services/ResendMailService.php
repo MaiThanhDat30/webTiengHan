@@ -10,10 +10,12 @@ class ResendMailService
     {
         return Http::withToken(config('services.resend.key'))
             ->post('https://api.resend.com/emails', [
-                'from' => 'Vocab App <no-reply@your-domain.com>',
+                'from' => config('mail.from.name') . ' <' . config('mail.from.address') . '>',
                 'to' => [$to],
                 'subject' => $subject,
                 'html' => $html,
             ]);
     }
 }
+
+
