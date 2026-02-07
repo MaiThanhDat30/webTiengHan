@@ -29,17 +29,14 @@ COPY . .
 # Copy Vite build
 COPY --from=node-builder /app/public/build /app/public/build
 
-# Laravel optimize
+# Laravel
 RUN composer install --no-dev --optimize-autoloader
-RUN php artisan key:generate
 RUN php artisan config:clear
 RUN php artisan route:clear
 RUN php artisan view:clear
 
-# Render cung cấp PORT
 ENV PORT=10000
-
 EXPOSE 10000
 
-# ✅ CHẠY ĐÚNG CHO PRODUCTION
+# ✅ Chạy đúng cho Render
 CMD php -S 0.0.0.0:$PORT -t public
