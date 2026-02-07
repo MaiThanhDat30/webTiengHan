@@ -93,17 +93,25 @@ class DashboardController extends Controller
                 ->where('sent_date', today())
                 ->exists();
 
-            if (! $alreadySentToday) {
+            if (!$alreadySentToday) {
 
-                Mail::to($user->email)
-                    ->send(new DailyReviewReminderMail($user, $dueVocabs));
+                try {
+                    Mail::to(
+                        app()->isLocal()
+                        ? 'callmedat999@gmail.com'
+                        : $user->email
+                    )->send(new DailyReviewReminderMail($user, $dueVocabs));
 
-                DB::table('review_notifications')->insert([
-                    'user_id'   => $userId,
-                    'sent_date'=> today(),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                    DB::table('review_notifications')->insert([
+                        'user_id' => $userId,
+                        'sent_date' => today(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+
+                } catch (\Throwable $e) {
+                    logger()->error('Mail send failed: ' . $e->getMessage());
+                }
             }
         }
 
@@ -164,13 +172,13 @@ class DashboardController extends Controller
 
         $suggestion = match (true) {
             $needReview >= 20 =>
-                'Bạn đang có nhiều từ đến hạn ôn. Nên ưu tiên ôn tập trước khi học từ mới.',
+            'Bạn đang có nhiều từ đến hạn ôn. Nên ưu tiên ôn tập trước khi học từ mới.',
             $accuracy < 60 =>
-                'Độ chính xác còn thấp. Nên giảm tốc độ học từ mới và tăng số lần ôn.',
+            'Độ chính xác còn thấp. Nên giảm tốc độ học từ mới và tăng số lần ôn.',
             $totalLearned < 100 =>
-                'Bạn đang ở giai đoạn nền tảng. Mỗi ngày học 10–15 từ là phù hợp.',
+            'Bạn đang ở giai đoạn nền tảng. Mỗi ngày học 10–15 từ là phù hợp.',
             default =>
-                'Tiến độ tốt! Tiếp tục duy trì đều đặn.',
+            'Tiến độ tốt! Tiếp tục duy trì đều đặn.',
         };
 
         /*
