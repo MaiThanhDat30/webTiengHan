@@ -12,14 +12,14 @@
 <ul>
     @foreach ($items as $item)
         <li>
-            <b>{{ $item->vocabulary->word_kr }}</b>
-            – {{ $item->vocabulary->word_vi }}
+            <b>{{ $item->vocabulary->word_kr ?? 'Từ đã bị xoá' }}</b>
+            – {{ $item->vocabulary->word_vi ?? '' }}
         </li>
     @endforeach
 </ul>
 
 <p>
-    👉 <a href="{{ url('/review') }}">Nhấn vào đây để ôn ngay</a>
+    👉 <a href="{{ route('srs.review') }}">Nhấn vào đây để ôn ngay</a>
 </p>
 
 <p>💪 Học đều mỗi ngày – nhớ rất lâu!</p>

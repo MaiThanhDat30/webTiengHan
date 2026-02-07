@@ -5,15 +5,19 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+
 use App\Models\LearningLog;
 use App\Models\UserVocabProgress;
 use App\Models\Idiom;
+use App\Mail\DailyReviewReminderMail;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $userId = Auth::id();
+        $user = Auth::user();
+        $userId = $user->id;
 
         /*
         |--------------------------------------------------------------------------
@@ -21,25 +25,22 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        // Tổng số từ đã từng học
         $totalLearned = LearningLog::where('user_id', $userId)
             ->where('action', 'learn')
             ->distinct('vocabulary_id')
             ->count('vocabulary_id');
 
-        // Số từ đến hạn ôn
         $needReview = UserVocabProgress::where('user_id', $userId)
             ->where('next_review_at', '<=', now())
             ->count();
 
-        // Số hoạt động hôm nay
         $todayActivity = LearningLog::where('user_id', $userId)
             ->whereDate('created_at', today())
             ->count();
 
         /*
         |--------------------------------------------------------------------------
-        | 2️⃣ ĐÚNG / SAI HÔM NAY → ĐÁNH GIÁ TRÌNH ĐỘ
+        | 2️⃣ ĐÚNG / SAI HÔM NAY
         |--------------------------------------------------------------------------
         */
 
@@ -53,14 +54,12 @@ class DashboardController extends Controller
             ->where('result', 'wrong')
             ->count();
 
-
         $totalReviews = $todayCorrect + $todayWrong;
 
         $accuracy = $totalReviews > 0
             ? round(($todayCorrect / $totalReviews) * 100)
             : 0;
 
-        // Đánh giá trình độ (đơn giản – có thể nâng cấp sau)
         $level = match (true) {
             $accuracy < 50 => 'Yếu',
             $accuracy < 70 => 'Trung bình',
@@ -70,7 +69,47 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 3️⃣ BIỂU ĐỒ 7 NGÀY GẦN NHẤT
+        | 3️⃣ TỪ ĐẾN HẠN ÔN (SRS)
+        |--------------------------------------------------------------------------
+        */
+
+        $dueVocabs = UserVocabProgress::where('user_id', $userId)
+            ->where('next_review_at', '<=', now())
+            ->orderBy('next_review_at')
+            ->with('vocabulary')
+            ->limit(10)
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | 4️⃣ GỬI MAIL NHẮC ÔN (1 LẦN / NGÀY)
+        |--------------------------------------------------------------------------
+        */
+
+        if ($dueVocabs->count() > 0) {
+
+            $alreadySentToday = DB::table('review_notifications')
+                ->where('user_id', $userId)
+                ->where('sent_date', today())
+                ->exists();
+
+            if (! $alreadySentToday) {
+
+                Mail::to($user->email)
+                    ->send(new DailyReviewReminderMail($user, $dueVocabs));
+
+                DB::table('review_notifications')->insert([
+                    'user_id'   => $userId,
+                    'sent_date'=> today(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 5️⃣ BIỂU ĐỒ 7 NGÀY
         |--------------------------------------------------------------------------
         */
 
@@ -83,7 +122,7 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 4️⃣ TỪ VỰNG CÓ VẤN ĐỀ (HAY SAI / HAY QUÊN)
+        | 6️⃣ TỪ HAY SAI / HAY QUÊN
         |--------------------------------------------------------------------------
         */
 
@@ -102,7 +141,6 @@ class DashboardController extends Controller
             ->where('learning_logs.user_id', $userId)
             ->groupBy('learning_logs.vocabulary_id', 'vocabularies.word_kr')
             ->havingRaw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) >= 2")
-
             ->orderByDesc('wrongs')
             ->limit(10)
             ->get()
@@ -120,57 +158,27 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 5️⃣ TỪ ĐẾN HẠN ÔN (SRS)
-        |--------------------------------------------------------------------------
-        */
-
-        $dueVocabs = UserVocabProgress::where('user_id', $userId)
-            ->where('next_review_at', '<=', now())
-            ->orderBy('next_review_at')
-            ->limit(10)
-            ->with('vocabulary') // relation vocab
-            ->get();
-
-        /*
-        |--------------------------------------------------------------------------
-        | 6️⃣ GỢI Ý LỘ TRÌNH HỌC (RULE-BASED)
+        | 7️⃣ GỢI Ý LỘ TRÌNH
         |--------------------------------------------------------------------------
         */
 
         $suggestion = match (true) {
             $needReview >= 20 =>
-            'Bạn đang có nhiều từ đến hạn ôn. Nên ưu tiên ôn tập trước khi học từ mới.',
+                'Bạn đang có nhiều từ đến hạn ôn. Nên ưu tiên ôn tập trước khi học từ mới.',
             $accuracy < 60 =>
-            'Độ chính xác còn thấp. Nên giảm tốc độ học từ mới và tăng số lần ôn.',
+                'Độ chính xác còn thấp. Nên giảm tốc độ học từ mới và tăng số lần ôn.',
             $totalLearned < 100 =>
-            'Bạn đang ở giai đoạn nền tảng. Mỗi ngày học 10–15 từ là phù hợp.',
+                'Bạn đang ở giai đoạn nền tảng. Mỗi ngày học 10–15 từ là phù hợp.',
             default =>
-            'Tiến độ tốt! Có thể tiếp tục học từ mới và duy trì ôn tập đều đặn.',
+                'Tiến độ tốt! Tiếp tục duy trì đều đặn.',
         };
+
         /*
         |--------------------------------------------------------------------------
-        | 8️⃣ TỪ KHÓ / HAY QUÊN TOÀN HỆ THỐNG
+        | 8️⃣ BXH TỪ KHÓ
         |--------------------------------------------------------------------------
         */
 
-        $globalHardVocabs = LearningLog::join(
-            'vocabularies',
-            'learning_logs.vocabulary_id',
-            '=',
-            'vocabularies.id'
-        )
-            ->select(
-                'learning_logs.vocabulary_id',
-                'vocabularies.word_kr',
-                DB::raw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) as wrongs"),
-                DB::raw('COUNT(*) as total')
-            )
-            ->groupBy('learning_logs.vocabulary_id', 'vocabularies.word_kr')
-            ->havingRaw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) >= 10") // ngưỡng "khó"
-            ->orderByDesc('wrongs')
-            ->limit(10)
-            ->get();
-        // 8️⃣ BXH TỪ VỰNG BỊ SAI NHIỀU NHẤT (TOÀN HỆ THỐNG)
         $globalWrongRanking = LearningLog::join(
             'vocabularies',
             'learning_logs.vocabulary_id',
@@ -187,21 +195,19 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-
         /*
-
-|--------------------------------------------------------------------------
-| 9️⃣ CÂU QUÁN DỤNG NGỮ / MẪU CÂU HAY
-|--------------------------------------------------------------------------
-*/
+        |--------------------------------------------------------------------------
+        | 9️⃣ IDIOM
+        |--------------------------------------------------------------------------
+        */
 
         $idiomSuggestions = Idiom::inRandomOrder()
             ->limit(5)
             ->get();
-        /*
 
+        /*
         |--------------------------------------------------------------------------
-        | 7️⃣ TRẢ VIEW
+        | 🔟 VIEW
         |--------------------------------------------------------------------------
         */
 
@@ -217,10 +223,8 @@ class DashboardController extends Controller
             'problemVocabs',
             'dueVocabs',
             'suggestion',
-            'globalHardVocabs',
             'globalWrongRanking',
             'idiomSuggestions'
         ));
-
     }
 }
