@@ -1,27 +1,30 @@
 FROM php:8.2-fpm
 
-# Install system dependencies
+# System deps
 RUN apt-get update && apt-get install -y \
     libpq-dev \
-    unzip \
     git \
     curl \
+    unzip \
+    nodejs \
+    npm \
     && docker-php-ext-install pdo pdo_pgsql
 
-# Set working directory
 WORKDIR /app
 
-# Copy project
+# Copy source
 COPY . .
 
-# Install Composer
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Install dependencies
 RUN composer install --no-dev --optimize-autoloader
 
+# Build Vite
+RUN npm install
+RUN npm run build
+
 # Permissions
-RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chown -R www-data:www-data storage bootstrap/cache public/build
 
 EXPOSE 8000
 
