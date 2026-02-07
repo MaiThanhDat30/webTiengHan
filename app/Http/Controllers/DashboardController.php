@@ -101,7 +101,8 @@ class DashboardController extends Controller
             )
             ->where('learning_logs.user_id', $userId)
             ->groupBy('learning_logs.vocabulary_id', 'vocabularies.word_kr')
-            ->having('wrongs', '>=', 2)
+            ->havingRaw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) >= 2")
+
             ->orderByDesc('wrongs')
             ->limit(10)
             ->get()
@@ -165,7 +166,7 @@ class DashboardController extends Controller
                 DB::raw('COUNT(*) as total')
             )
             ->groupBy('learning_logs.vocabulary_id', 'vocabularies.word_kr')
-            ->having('wrongs', '>=', 10) // ngưỡng "khó"
+            ->havingRaw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) >= 10") // ngưỡng "khó"
             ->orderByDesc('wrongs')
             ->limit(10)
             ->get();
