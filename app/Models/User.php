@@ -24,15 +24,20 @@ class User extends Authenticatable implements MustVerifyEmail
     ];
     protected static function booted()
     {
+        static::updating(function ($user) {
+            if ($user->isDirty('password')) {
+                $user->email_verified_at = null;
+            }
+        });
+
         static::updated(function ($user) {
             if ($user->wasChanged('password')) {
-                $user->email_verified_at = null;
-                $user->saveQuietly();
                 $user->sendEmailVerificationNotification();
             }
         });
     }
-    
+
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -54,7 +59,7 @@ class User extends Authenticatable implements MustVerifyEmail
     ];
 
     public function vocabProgresses()
-{
-    return $this->hasMany(\App\Models\UserVocabProgress::class);
-}
+    {
+        return $this->hasMany(\App\Models\UserVocabProgress::class);
+    }
 }
