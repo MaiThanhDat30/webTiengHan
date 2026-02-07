@@ -18,12 +18,18 @@ Route::get('/', function () {
     return view('home');
 })->name('home');
 
-
+/**
+ * Dashboard – bắt buộc login + verify email
+ */
 Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware('auth')
+    ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+/**
+ * TOÀN BỘ CHỨC NĂNG HỌC
+ * ➜ Login + Verify email mới dùng được
+ */
+Route::middleware(['auth', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
@@ -72,7 +78,7 @@ Route::middleware('auth')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | SRS
+    | SRS – Ôn tập
     |--------------------------------------------------------------------------
     */
     Route::post('/srs/answer', [SrsController::class, 'answer'])
@@ -84,11 +90,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/review/answer', [SrsController::class, 'reviewAnswer'])
         ->name('srs.review.answer');
 
-    // ⚠️ phải đặt trước route có biến
     Route::get('/review/next', [SrsController::class, 'nextReview'])
         ->name('srs.review.next');
 
-    // ⚠️ đặt sau cùng
     Route::get('/review/{progress}', [SrsController::class, 'reviewCard'])
         ->name('srs.card');
 
@@ -101,4 +105,7 @@ Route::middleware('auth')->group(function () {
         ->name('topiks.index');
 });
 
+/**
+ * Auth routes (login, register, verify email, reset password)
+ */
 require __DIR__ . '/auth.php';
