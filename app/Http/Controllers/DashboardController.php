@@ -96,7 +96,7 @@ class DashboardController extends Controller
             ->select(
                 'learning_logs.vocabulary_id',
                 'vocabularies.word_kr',
-                DB::raw('SUM(CASE WHEN learning_logs.result = "wrong" THEN 1 ELSE 0 END) as wrongs'),
+                DB::raw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) as wrongs"),
                 DB::raw('COUNT(*) as total')
             )
             ->where('learning_logs.user_id', $userId)
@@ -161,7 +161,7 @@ class DashboardController extends Controller
             ->select(
                 'learning_logs.vocabulary_id',
                 'vocabularies.word_kr',
-                DB::raw('SUM(CASE WHEN learning_logs.result = "wrong" THEN 1 ELSE 0 END) as wrongs'),
+                DB::raw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) as wrongs"),
                 DB::raw('COUNT(*) as total')
             )
             ->groupBy('learning_logs.vocabulary_id', 'vocabularies.word_kr')
