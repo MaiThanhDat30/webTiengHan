@@ -1,4 +1,6 @@
-# ===== STAGE 1: BUILD VITE =====
+# ======================
+# STAGE 1: BUILD VITE
+# ======================
 FROM node:18 AS node-builder
 WORKDIR /app
 
@@ -9,29 +11,35 @@ COPY . .
 RUN npm run build
 
 
-# ===== STAGE 2: LARAVEL =====
+# ======================
+# STAGE 2: PHP + LARAVEL
+# ======================
 FROM php:8.1-cli
 
 RUN apt-get update && apt-get install -y \
     git unzip libzip-dev \
     && docker-php-ext-install zip pdo pdo_mysql
 
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 COPY . .
 
-# COPY VITE BUILD
+# Copy Vite build
 COPY --from=node-builder /app/public/build /app/public/build
 
-# FIX PERMISSION (RẤT QUAN TRỌNG)
-RUN chmod -R 755 public/build
-RUN chmod -R 777 storage bootstrap/cache
-
+# Laravel optimize
 RUN composer install --no-dev --optimize-autoloader
-RUN php artisan optimize:clear || true
+RUN php artisan key:generate
+RUN php artisan config:clear
+RUN php artisan route:clear
+RUN php artisan view:clear
+
+# Render cung cấp PORT
+ENV PORT=10000
 
 EXPOSE 10000
 
-# ❗ KHÔNG DÙNG artisan serve
-CMD php -S 0.0.0.0:10000 -t public
+# ✅ CHẠY ĐÚNG CHO PRODUCTION
+CMD php -S 0.0.0.0:$PORT -t public
