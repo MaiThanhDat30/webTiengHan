@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\URL;
+use App\Services\ResendMailService;
 
 class RegisteredUserController extends Controller
 {
@@ -32,20 +34,39 @@ class RegisteredUserController extends Controller
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
-
+    
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
-
-        event(new Registered($user));
-
-        Auth::login($user);
-
-        return redirect()->route('verification.notice');
+    
+        /** 🔐 TẠO LINK XÁC THỰC */
+        $url = URL::temporarySignedRoute(
+            'verification.verify',
+            now()->addMinutes(60),
+            [
+                'id' => $user->id,
+                'hash' => sha1($user->email),
+            ]
+        );
+    
+        /** ✉️ GỬI MAIL BẰNG RESEND (KHÔNG SMTP) */
+        ResendMailService::send(
+            $user->email,
+            'Xác thực email',
+            "<p>Chào {$user->name},</p>
+             <p>Click vào link dưới đây để xác thực email:</p>
+             <a href='{$url}'>Xác thực email</a>"
+        );
+    
+        return redirect()->route('login')->with(
+            'status',
+            'Đăng ký thành công! Vui lòng kiểm tra email để xác thực.'
+        );
     }
+    
 }
