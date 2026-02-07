@@ -7,7 +7,7 @@ use App\Http\Controllers\TopicController;
 use App\Http\Controllers\SrsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TopikController;
-
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -24,6 +24,13 @@ Route::get('/', function () {
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
+
+    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+        $request->fulfill();
+    
+        return redirect()->route('dashboard')
+            ->with('success', 'Xác thực email thành công!');
+    })->middleware(['signed'])->name('verification.verify');
 
 /**
  * TOÀN BỘ CHỨC NĂNG HỌC
@@ -104,6 +111,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/topiks', [TopikController::class, 'index'])
         ->name('topiks.index');
 });
+
+
 
 /**
  * Auth routes (login, register, verify email, reset password)

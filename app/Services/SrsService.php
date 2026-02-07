@@ -41,7 +41,7 @@ class SrsService
     {
         $progress->update([
             'step' => 0,
-            'next_review_at' => Carbon::now()->addDay(),
+            'next_review_at' => Carbon::now ()->addDay(),
         ]);
     }
 }
