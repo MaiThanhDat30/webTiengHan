@@ -18,12 +18,11 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $userId = $user->id;
+        $today = today();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 1️⃣ THỐNG KÊ CƠ BẢN
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 1️⃣ THỐNG KÊ CƠ BẢN (tối ưu query)
+         ===================================================== */
 
         $totalLearned = LearningLog::where('user_id', $userId)
             ->where('action', 'learn')
@@ -35,24 +34,23 @@ class DashboardController extends Controller
             ->count();
 
         $todayActivity = LearningLog::where('user_id', $userId)
-            ->whereDate('created_at', today())
+            ->whereDate('created_at', $today)
             ->count();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 2️⃣ ĐÚNG / SAI HÔM NAY
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 2️⃣ ĐÚNG / SAI HÔM NAY (FIX POSTGRES)
+         ===================================================== */
 
-        $todayCorrect = LearningLog::where('user_id', $userId)
-            ->whereDate('created_at', today())
-            ->where('result', 'correct')
-            ->count();
+        $todayStats = LearningLog::where('user_id', $userId)
+            ->whereDate('created_at', $today)
+            ->selectRaw("
+                SUM(CASE WHEN result = 'correct' THEN 1 ELSE 0 END) AS correct,
+                SUM(CASE WHEN result = 'wrong' THEN 1 ELSE 0 END)   AS wrong
+            ")
+            ->first();
 
-        $todayWrong = LearningLog::where('user_id', $userId)
-            ->whereDate('created_at', today())
-            ->where('result', 'wrong')
-            ->count();
+        $todayCorrect = $todayStats->correct ?? 0;
+        $todayWrong   = $todayStats->wrong ?? 0;
 
         $totalReviews = $todayCorrect + $todayWrong;
 
@@ -64,160 +62,141 @@ class DashboardController extends Controller
             $accuracy < 50 => 'Yếu',
             $accuracy < 70 => 'Trung bình',
             $accuracy < 85 => 'Khá',
-            default => 'Tốt',
+            default        => 'Tốt',
         };
 
-        /*
-        |--------------------------------------------------------------------------
-        | 3️⃣ TỪ ĐẾN HẠN ÔN (SRS)
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 3️⃣ TỪ ĐẾN HẠN ÔN (SRS)
+         ===================================================== */
 
-        $dueVocabs = UserVocabProgress::where('user_id', $userId)
+        $dueVocabs = UserVocabProgress::with('vocabulary')
+            ->where('user_id', $userId)
             ->where('next_review_at', '<=', now())
             ->orderBy('next_review_at')
-            ->with('vocabulary')
             ->limit(10)
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 4️⃣ GỬI MAIL NHẮC ÔN (1 LẦN / NGÀY)
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 4️⃣ MAIL NHẮC ÔN (KHÔNG LÀM CHẬM DASHBOARD)
+         ===================================================== */
 
-        if ($dueVocabs->count() > 0) {
-
+        if ($dueVocabs->isNotEmpty()) {
             $alreadySentToday = DB::table('review_notifications')
                 ->where('user_id', $userId)
-                ->where('sent_date', today())
+                ->where('sent_date', $today)
                 ->exists();
 
-            if (!$alreadySentToday) {
-
+            if (! $alreadySentToday) {
                 try {
                     Mail::to(
                         app()->isLocal()
-                        ? 'callmedat999@gmail.com'
-                        : $user->email
-                    )->send(new DailyReviewReminderMail($user, $dueVocabs));
+                            ? 'callmedat999@gmail.com'
+                            : $user->email
+                    )->queue(new DailyReviewReminderMail($user, $dueVocabs));
 
                     DB::table('review_notifications')->insert([
-                        'user_id' => $userId,
-                        'sent_date' => today(),
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'user_id'    => $userId,
+                        'sent_date'  => $today,
+                        'created_at'=> now(),
+                        'updated_at'=> now(),
                     ]);
-
                 } catch (\Throwable $e) {
-                    logger()->error('Mail send failed: ' . $e->getMessage());
+                    logger()->error('Mail error: ' . $e->getMessage());
                 }
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 5️⃣ BIỂU ĐỒ 7 NGÀY
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 5️⃣ BIỂU ĐỒ 7 NGÀY (POSTGRES SAFE)
+         ===================================================== */
 
-        $last7Days = LearningLog::selectRaw('DATE(created_at) as date, COUNT(*) as total')
-            ->where('user_id', $userId)
+        $last7Days = LearningLog::where('user_id', $userId)
             ->where('created_at', '>=', now()->subDays(6))
-            ->groupBy('date')
+            ->selectRaw("DATE(created_at) AS date, COUNT(*) AS total")
+            ->groupByRaw("DATE(created_at)")
             ->orderBy('date')
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 6️⃣ TỪ HAY SAI / HAY QUÊN
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 6️⃣ TỪ HAY SAI / HAY QUÊN (giảm N+1)
+         ===================================================== */
 
         $problemVocabs = LearningLog::join(
-            'vocabularies',
-            'learning_logs.vocabulary_id',
-            '=',
-            'vocabularies.id'
-        )
-            ->select(
+                'vocabularies',
+                'learning_logs.vocabulary_id',
+                '=',
+                'vocabularies.id'
+            )
+            ->leftJoin('user_vocab_progress', function ($join) use ($userId) {
+                $join->on('learning_logs.vocabulary_id', '=', 'user_vocab_progress.vocabulary_id')
+                     ->where('user_vocab_progress.user_id', $userId);
+            })
+            ->where('learning_logs.user_id', $userId)
+            ->groupBy(
                 'learning_logs.vocabulary_id',
                 'vocabularies.word_kr',
-                DB::raw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) as wrongs"),
-                DB::raw('COUNT(*) as total')
+                'user_vocab_progress.next_review_at'
             )
-            ->where('learning_logs.user_id', $userId)
-            ->groupBy('learning_logs.vocabulary_id', 'vocabularies.word_kr')
-            ->havingRaw("SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) >= 2")
+            ->havingRaw("
+                SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) >= 2
+            ")
+            ->selectRaw("
+                learning_logs.vocabulary_id,
+                vocabularies.word_kr,
+                SUM(CASE WHEN learning_logs.result = 'wrong' THEN 1 ELSE 0 END) AS wrongs,
+                CASE
+                    WHEN user_vocab_progress.next_review_at <= NOW()
+                    THEN 'Hay quên'
+                    ELSE 'Hay sai'
+                END AS tag
+            ")
             ->orderByDesc('wrongs')
             ->limit(10)
-            ->get()
-            ->map(function ($item) use ($userId) {
-                $progress = UserVocabProgress::where('user_id', $userId)
-                    ->where('vocabulary_id', $item->vocabulary_id)
-                    ->first();
+            ->get();
 
-                $item->tag = ($progress && $progress->next_review_at <= now())
-                    ? 'Hay quên'
-                    : 'Hay sai';
-
-                return $item;
-            });
-
-        /*
-        |--------------------------------------------------------------------------
-        | 7️⃣ GỢI Ý LỘ TRÌNH
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 7️⃣ GỢI Ý LỘ TRÌNH
+         ===================================================== */
 
         $suggestion = match (true) {
             $needReview >= 20 =>
-            'Bạn đang có nhiều từ đến hạn ôn. Nên ưu tiên ôn tập trước khi học từ mới.',
+                'Bạn đang có nhiều từ đến hạn ôn. Nên ưu tiên ôn tập trước khi học từ mới.',
             $accuracy < 60 =>
-            'Độ chính xác còn thấp. Nên giảm tốc độ học từ mới và tăng số lần ôn.',
+                'Độ chính xác còn thấp. Nên giảm tốc độ học từ mới và tăng số lần ôn.',
             $totalLearned < 100 =>
-            'Bạn đang ở giai đoạn nền tảng. Mỗi ngày học 10–15 từ là phù hợp.',
+                'Bạn đang ở giai đoạn nền tảng. Mỗi ngày học 10–15 từ là phù hợp.',
             default =>
-            'Tiến độ tốt! Tiếp tục duy trì đều đặn.',
+                'Tiến độ tốt! Tiếp tục duy trì đều đặn.',
         };
 
-        /*
-        |--------------------------------------------------------------------------
-        | 8️⃣ BXH TỪ KHÓ
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 8️⃣ BXH TỪ KHÓ (TOÀN HỆ THỐNG)
+         ===================================================== */
 
         $globalWrongRanking = LearningLog::join(
-            'vocabularies',
-            'learning_logs.vocabulary_id',
-            '=',
-            'vocabularies.id'
-        )
-            ->where('learning_logs.result', 'wrong')
-            ->select(
-                'vocabularies.word_kr',
-                DB::raw('COUNT(*) as wrong_times')
+                'vocabularies',
+                'learning_logs.vocabulary_id',
+                '=',
+                'vocabularies.id'
             )
+            ->where('learning_logs.result', 'wrong')
             ->groupBy('vocabularies.word_kr')
+            ->selectRaw('vocabularies.word_kr, COUNT(*) AS wrong_times')
             ->orderByDesc('wrong_times')
             ->limit(5)
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 9️⃣ IDIOM
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 9️⃣ IDIOM
+         ===================================================== */
 
         $idiomSuggestions = Idiom::inRandomOrder()
             ->limit(5)
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 🔟 VIEW
-        |--------------------------------------------------------------------------
-        */
+        /* =====================================================
+         | 🔟 VIEW
+         ===================================================== */
 
         return view('dashboard', compact(
             'totalLearned',
