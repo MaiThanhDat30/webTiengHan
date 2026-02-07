@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class UserVocabProgress extends Model
@@ -12,8 +11,7 @@ class UserVocabProgress extends Model
     protected $fillable = [
         'user_id',
         'vocabulary_id',
-        'repetition',
-        'interval',
+        'step',
         'next_review_at',
     ];
 
@@ -26,4 +24,3 @@ class UserVocabProgress extends Model
         return $this->belongsTo(Vocabulary::class);
     }
 }
-

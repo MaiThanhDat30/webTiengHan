@@ -25,12 +25,12 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
-    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-        $request->fulfill();
-    
-        return redirect()->route('dashboard')
-            ->with('success', 'Xác thực email thành công!');
-    })->middleware(['signed'])->name('verification.verify');
+Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+    $request->fulfill();
+
+    return redirect()->route('dashboard')
+        ->with('success', 'Xác thực email thành công!');
+})->middleware(['signed'])->name('verification.verify');
 
 /**
  * TOÀN BỘ CHỨC NĂNG HỌC
@@ -102,7 +102,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/review/{progress}', [SrsController::class, 'reviewCard'])
         ->name('srs.card');
-
+    Route::post('/srs/save', [SrsController::class, 'saveForReview'])
+        ->name('srs.save')
+        ->middleware('auth');
+    Route::post('/srs/toggle', [SrsController::class, 'toggle'])
+        ->name('srs.toggle');
     /*
     |--------------------------------------------------------------------------
     | TOPIK

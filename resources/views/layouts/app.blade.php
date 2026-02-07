@@ -10,7 +10,7 @@
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=figtree:400;500;600&display=swap" rel="stylesheet" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <!-- NAVIGATION -->
     @include('layouts.navigation')
 
-    <!-- PAGE HEADER -->
-    @if (isset($header))
+    <!-- PAGE HEADER (SỬA: dùng section/yield) -->
+    @hasSection('header')
         <header class="max-w-7xl mx-auto px-6 mt-8 mb-6">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100
-                               px-6 py-4 flex items-center justify-between">
-                {{ $header }}
+                        px-6 py-4 flex items-center justify-between">
+                @yield('header')
             </div>
         </header>
     @endif
@@ -39,6 +39,8 @@
         @yield('content')
     </main>
 
-</body>
+    <!-- ⭐ QUAN TRỌNG: LOAD JS TỪ VIEW -->
+    @yield('scripts')
 
+</body>
 </html>
