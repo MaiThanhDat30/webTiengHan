@@ -1,31 +1,40 @@
-<x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-        {{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn\'t receive the email, we will gladly send you another.') }}
-    </div>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Xác thực email</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
 
-    @if (session('status') == 'verification-link-sent')
-        <div class="mb-4 font-medium text-sm text-green-600 dark:text-green-400">
-            {{ __('A new verification link has been sent to the email address you provided during registration.') }}
-        </div>
-    @endif
+    <div class="bg-white p-6 rounded-xl shadow-md w-full max-w-md text-center">
+        <h1 class="text-xl font-bold mb-4">📩 Xác thực email</h1>
 
-    <div class="mt-4 flex items-center justify-between">
+        <p class="text-gray-600 mb-4">
+            Cảm ơn bạn đã đăng ký!  
+            Vui lòng kiểm tra email và nhấn vào link xác thực để tiếp tục.
+        </p>
+
+        @if (session('status') == 'verification-link-sent')
+            <div class="text-green-600 mb-4">
+                ✅ Link xác thực đã được gửi lại!
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('verification.send') }}">
             @csrf
-
-            <div>
-                <x-primary-button>
-                    {{ __('Resend Verification Email') }}
-                </x-primary-button>
-            </div>
+            <button class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                Gửi lại email xác thực
+            </button>
         </form>
 
-        <form method="POST" action="{{ route('logout') }}">
+        <form method="POST" action="{{ route('logout') }}" class="mt-4">
             @csrf
-
-            <button type="submit" class="underline text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800">
-                {{ __('Log Out') }}
+            <button class="text-sm text-gray-500 hover:underline">
+                Đăng xuất
             </button>
         </form>
     </div>
-</x-guest-layout>
+
+</body>
+</html>
