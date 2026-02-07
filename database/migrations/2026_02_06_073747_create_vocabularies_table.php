@@ -25,11 +25,8 @@ return new class extends Migration {
         
             $table->text('example')->nullable();
         
-            $table->enum('category', [
-                'giao_tiep',
-                'hoc_thuat',
-                'chuyen_nganh'
-            ])->default('giao_tiep');
+            $table->string('category', 50)->default('giao_tiep');
+
         
             $table->timestamps();
         });
