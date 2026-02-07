@@ -1,75 +1,48 @@
-@extends('layouts.app')
+@foreach ($reviews as $item)
+    @php
+        $daysLeft = now()->diffInDays($item->next_review_at, false);
+        $isDue = $daysLeft <= 0;
+    @endphp
 
-@section('header')
-    <div>
-        <h2 class="text-2xl font-bold text-gray-800">
-            📚 Từ cần ôn
-        </h2>
-        <p class="text-sm text-gray-500 mt-1">
-            Những từ bạn chưa nhớ hoặc đã đến hạn ôn lại
-        </p>
-    </div>
-@endsection
+    <div class="bg-white rounded-2xl border p-6 transition
+                {{ $isDue ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:shadow-md' }}">
 
-@section('content')
-    <div class="py-8">
-        <div class="max-w-7xl mx-auto px-4">
+        {{-- HEADER --}}
+        <div class="flex items-center justify-between">
+            <h3 class="text-xl font-bold text-gray-800">
+                {{ $item->vocabulary->word_kr }}
+            </h3>
 
-            {{-- EMPTY STATE --}}
-            @if ($reviews->isEmpty())
-                <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-                    <div class="text-5xl mb-4">🎉</div>
-
-                    <p class="text-lg font-semibold text-gray-700">
-                        Tuyệt vời! Không có từ nào cần ôn
-                    </p>
-
-                    <p class="text-sm text-gray-500 mt-2">
-                        Hãy quay lại học thêm từ mới nhé
-                    </p>
-
-                    <a href="{{ url('/topics') }}"
-                       class="inline-block mt-6 px-6 py-3 rounded-xl
-                              bg-indigo-600 text-white font-medium
-                              hover:bg-indigo-700 transition">
-                        📘 Học theo chủ đề
-                    </a>
-                </div>
-            @else
-
-                {{-- REVIEW LIST --}}
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    @foreach ($reviews as $item)
-                        <div class="bg-white rounded-2xl border border-gray-200 p-6
-                                    hover:shadow-md transition group">
-
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-xl font-bold text-gray-800">
-                                    {{ $item->vocabulary->word_kr }}
-                                </h3>
-
-                                <span class="text-sm text-gray-400">
-                                    {{ $item->next_review_at->format('d/m/Y') }}
-                                </span>
-                            </div>
-
-                            <p class="text-gray-500 mt-2">
-                                {{ $item->vocabulary->word_vi }}
-                            </p>
-
-                            <a href="{{ route('srs.card', $item->id) }}"
-                               class="mt-6 inline-flex items-center justify-center w-full
-                                      px-4 py-3 rounded-xl
-                                      bg-indigo-50 text-indigo-600 font-semibold
-                                      hover:bg-indigo-600 hover:text-white transition">
-                                🔁 Ôn lại ngay
-                            </a>
-                        </div>
-                    @endforeach
-                </div>
-
-            @endif
-
+            <span class="text-xs px-3 py-1 rounded-full
+                {{ $isDue ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600' }}">
+                {{ $stepsLabel[$item->step] ?? 'Ôn tập' }}
+            </span>
         </div>
+
+        {{-- MEANING --}}
+        <p class="text-gray-600 mt-2">
+            {{ $item->vocabulary->word_vi }}
+        </p>
+
+        {{-- REVIEW INFO --}}
+        <p class="text-sm mt-3
+            {{ $isDue ? 'text-red-600 font-semibold' : 'text-gray-500' }}">
+            @if ($isDue)
+                ⏰ Đến hạn ôn hôm nay
+            @else
+                📅 Ôn sau {{ $daysLeft }} ngày ({{ $item->next_review_at->format('d/m/Y') }})
+            @endif
+        </p>
+
+        {{-- ACTION --}}
+        <a href="{{ route('srs.card', $item->id) }}"
+           class="mt-5 inline-flex items-center justify-center w-full
+                  px-4 py-3 rounded-xl font-semibold transition
+                  {{ $isDue
+                        ? 'bg-red-600 text-white hover:bg-red-700'
+                        : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white'
+                  }}">
+            🔁 Ôn ngay
+        </a>
     </div>
-@endsection
+@endforeach

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 use App\Models\UserVocabProgress;
 use App\Models\LearningLog;
 
@@ -28,40 +27,25 @@ class SrsController extends Controller
                 'vocabulary_id' => $request->vocabulary_id,
             ],
             [
-                'repetition' => 0,
-                'interval' => 1,
-                'next_review_at' => now(),
+                'step' => 0,
+                'next_review_at' => now()->addDay(),
             ]
         );
 
-        // 📌 GHI LOG HỌC
+        // 📌 LOG
         LearningLog::create([
             'user_id' => Auth::id(),
             'vocabulary_id' => $request->vocabulary_id,
             'action' => 'learn',
             'result' => $request->result,
-            'interval' => $progress->interval,
+            'interval' => null,
         ]);
 
         if ($request->result === 'correct') {
-            $progress->repetition++;
-
-            $progress->interval = match ($progress->repetition) {
-                1 => 1,
-                2 => 3,
-                3 => 7,
-                default => 14,
-            };
-
-            $progress->next_review_at = now()->addDays($progress->interval);
+            $this->moveToNextStep($progress);
         } else {
-            // ❌ Chưa nhớ → ép ôn ngay
-            $progress->repetition = 0;
-            $progress->interval = 1;
-            $progress->next_review_at = now();
+            $this->resetProgress($progress);
         }
-
-        $progress->save();
 
         return redirect(
             '/topics/' . $request->topic_id . '/flashcard?index=' . ($request->index + 1)
@@ -75,10 +59,7 @@ class SrsController extends Controller
     {
         $reviews = UserVocabProgress::with('vocabulary')
             ->where('user_id', auth()->id())
-            ->where(function ($q) {
-                $q->where('repetition', 0)
-                    ->orWhere('next_review_at', '<=', now());
-            })
+            ->where('next_review_at', '<=', now())
             ->orderBy('next_review_at')
             ->get();
 
@@ -108,37 +89,28 @@ class SrsController extends Controller
             'result' => 'required|in:correct,wrong',
         ]);
 
-        $current = UserVocabProgress::findOrFail($request->progress_id);
-        abort_if($current->user_id !== auth()->id(), 403);
+        $progress = UserVocabProgress::findOrFail($request->progress_id);
+        abort_if($progress->user_id !== auth()->id(), 403);
 
         // 📌 LOG
         LearningLog::create([
             'user_id' => auth()->id(),
-            'vocabulary_id' => $current->vocabulary_id,
+            'vocabulary_id' => $progress->vocabulary_id,
             'action' => 'review',
             'result' => $request->result,
-            'interval' => $current->interval,
+            'interval' => null,
         ]);
 
-        if ($request->result === 'wrong') {
-            // ❌ CHƯA NHỚ → LƯU LẠI THỜI GIAN MỚI
-            $current->repetition = 0;
-            $current->interval = 1;
-            $current->next_review_at = now()->addMinutes(10);
-            $current->save();
+        if ($request->result === 'correct') {
+            $this->moveToNextStep($progress);
         } else {
-            // ✅ BIẾT RỒI → XÓA
-            $current->delete();
+            $this->resetProgress($progress);
         }
 
-        // 👉 TÌM TỪ KHÁC (KHÔNG LẤY LẠI TỪ HIỆN TẠI)
+        // 👉 LẤY TỪ TIẾP THEO
         $next = UserVocabProgress::with('vocabulary')
             ->where('user_id', auth()->id())
-            ->where('id', '!=', $current->id)
-            ->where(function ($q) {
-                $q->where('repetition', 0)
-                    ->orWhere('next_review_at', '<=', now());
-            })
+            ->where('next_review_at', '<=', now())
             ->orderBy('next_review_at')
             ->first();
 
@@ -146,10 +118,9 @@ class SrsController extends Controller
             return redirect()->route('srs.card', $next->id);
         }
 
-        // 👉 KHÔNG CÒN TỪ
         return redirect()
             ->route('srs.review')
-            ->with('success', '🎉 Bạn đã hoàn thành lượt ôn tập!');
+            ->with('success', '🎉 Bạn đã hoàn thành lượt ôn hôm nay!');
     }
 
     /**
@@ -159,10 +130,7 @@ class SrsController extends Controller
     {
         $progress = UserVocabProgress::with('vocabulary')
             ->where('user_id', auth()->id())
-            ->where(function ($q) {
-                $q->where('repetition', 0)
-                    ->orWhere('next_review_at', '<=', now());
-            })
+            ->where('next_review_at', '<=', now())
             ->orderBy('next_review_at')
             ->first();
 
@@ -171,5 +139,28 @@ class SrsController extends Controller
         }
 
         return redirect()->route('srs.card', $progress->id);
+    }
+
+    /* =====================================================
+       🔁 SRS LOGIC (1–3–7–14–30)
+    ===================================================== */
+
+    private function moveToNextStep(UserVocabProgress $progress)
+    {
+        $steps = [1, 3, 7, 14, 30];
+
+        $currentStep = min($progress->step, count($steps) - 1);
+        $days = $steps[$currentStep];
+
+        $progress->step = $currentStep + 1;
+        $progress->next_review_at = now()->addDays($days);
+        $progress->save();
+    }
+
+    private function resetProgress(UserVocabProgress $progress)
+    {
+        $progress->step = 0;
+        $progress->next_review_at = now()->addDay();
+        $progress->save();
     }
 }

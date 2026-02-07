@@ -12,21 +12,21 @@ return new class extends Migration {
     {
         Schema::create('user_vocab_progress', function (Blueprint $table) {
             $table->id();
-
+        
             $table->foreignId('user_id')
                 ->constrained()
                 ->cascadeOnDelete();
-
+        
             $table->foreignId('vocabulary_id')
                 ->constrained()
                 ->cascadeOnDelete();
-
-            $table->integer('repetition')->default(0);
-            $table->integer('interval')->default(1);
+        
+            // SRS step
+            $table->unsignedTinyInteger('step')->default(0);
             $table->date('next_review_at');
-
+        
             $table->timestamps();
-
+        
             $table->unique(['user_id', 'vocabulary_id']);
         });
     }

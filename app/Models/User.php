@@ -22,7 +22,17 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
     ];
-
+    protected static function booted()
+    {
+        static::updated(function ($user) {
+            if ($user->wasChanged('password')) {
+                $user->email_verified_at = null;
+                $user->saveQuietly();
+                $user->sendEmailVerificationNotification();
+            }
+        });
+    }
+    
     /**
      * The attributes that should be hidden for serialization.
      *
