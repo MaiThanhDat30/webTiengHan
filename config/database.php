@@ -10,7 +10,7 @@ return [
     |--------------------------------------------------------------------------
     | PostgreSQL (Render) là DB chính
     */
-    'default' => env('DB_CONNECTION', 'pgsql'),
+    'default' => env('DB_CONNECTION', 'mysql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -38,36 +38,46 @@ return [
         */
         'mysql' => [
             'driver' => 'mysql',
-            'host' => env('MYSQL_HOST', '127.0.0.1'),
-            'port' => env('MYSQL_PORT', '3306'),
-            'database' => env('MYSQL_DATABASE'),
-            'username' => env('MYSQL_USERNAME'),
-            'password' => env('MYSQL_PASSWORD'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '3306'),
+            'database' => env('DB_DATABASE'),
+            'username' => env('DB_USERNAME'),
+            'password' => env('DB_PASSWORD'),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
             'strict' => true,
             'engine' => null,
         ],
-
         /*
         |--------------------------------------------------------------------------
         | PostgreSQL – RENDER (DB ĐÍCH)
         |--------------------------------------------------------------------------
         */
-        'pgsql_render' => [
+        // 'pgsql_render' => [
+        //     'driver' => 'pgsql',
+        //     'host' => env('DB_HOST'),
+        //     'port' => env('DB_PORT', 5432),
+        //     'database' => env('DB_DATABASE'),
+        //     'username' => env('DB_USERNAME'),
+        //     'password' => env('DB_PASSWORD'),
+        //     'charset' => 'utf8',
+        //     'prefix' => '',
+        //     'schema' => 'public',
+        //     'sslmode' => 'require',
+        // ],
+        'pgsql_old' => [
             'driver' => 'pgsql',
-            'host' => env('DB_HOST'),
-            'port' => env('DB_PORT', 5432),
-            'database' => env('DB_DATABASE'),
-            'username' => env('DB_USERNAME'),
-            'password' => env('DB_PASSWORD'),
+            'host' => env('OLD_DB_HOST'),
+            'port' => env('OLD_DB_PORT', 5432),
+            'database' => env('OLD_DB_DATABASE'),
+            'username' => env('OLD_DB_USERNAME'),
+            'password' => env('OLD_DB_PASSWORD'),
             'charset' => 'utf8',
             'prefix' => '',
             'schema' => 'public',
             'sslmode' => 'require',
         ],
-
         /*
         |--------------------------------------------------------------------------
         | PostgreSQL – DEFAULT (trùng render, để Laravel dùng mặc định)
