@@ -23,6 +23,9 @@
                     : 0;
 
                 $isDue = $daysLeft <= 0;
+
+                // 👉 Số lần ôn (logic đơn giản – có thể thay sau)
+                $reviewCount = $item->step + 1;
             @endphp
 
             <div class="bg-white rounded-2xl border p-6 transition
@@ -45,16 +48,32 @@
                     {{ $item->vocabulary->word_vi ?? '' }}
                 </p>
 
-                {{-- REVIEW INFO --}}
-                <p class="text-sm mt-3
-                    {{ $isDue ? 'text-red-600 font-semibold' : 'text-gray-500' }}">
-                    @if ($isDue)
-                        ⏰ Đến hạn ôn hôm nay
-                    @else
-                        📅 Ôn sau {{ $daysLeft }} ngày
-                        ({{ $item->next_review_at?->format('d/m/Y') }})
-                    @endif
-                </p>
+                {{-- ===== THÔNG TIN ÔN TẬP ===== --}}
+                <div class="mt-4 space-y-1 text-sm">
+
+                    {{-- ⏰ ÔN LẠI SAU X NGÀY --}}
+                    <p class="{{ $isDue ? 'text-red-600 font-semibold' : 'text-gray-500' }}">
+                        @if ($isDue)
+                            ⏰ Đến hạn ôn hôm nay
+                        @else
+                            📅 Ôn lại sau <strong>{{ $daysLeft }}</strong> ngày
+                            ({{ $item->next_review_at?->format('d/m/Y') }})
+                        @endif
+                    </p>
+
+                    {{-- 🔁 SỐ LẦN ĐÃ ÔN --}}
+                    <p class="text-gray-500">
+                        🔁 Đã ôn <strong>{{ $reviewCount }}</strong> lần
+                    </p>
+
+                    {{-- 📊 CHI TIẾT TỪ --}}
+                    <p class="text-gray-400 text-xs">
+                        📊 Step: {{ $item->step }} |
+                        Tạo: {{ $item->created_at->format('d/m/Y') }} |
+                        Cập nhật: {{ $item->updated_at->format('d/m/Y') }}
+                    </p>
+
+                </div>
 
                 {{-- ACTION --}}
                 <a href="{{ route('srs.card', $item->id) }}"

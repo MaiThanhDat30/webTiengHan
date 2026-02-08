@@ -13,5 +13,6 @@
 
 <body class="bg-gray-50 min-h-screen flex items-center justify-center font-sans">
     @yield('content')
+    @stack('scripts')
 </body>
 </html>

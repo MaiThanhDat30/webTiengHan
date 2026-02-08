@@ -22,6 +22,7 @@ use App\Http\Controllers\{
 | Public Routes
 |--------------------------------------------------------------------------
 */
+
 Route::get('/', fn() => view('home'))->name('home');
 
 /*
@@ -37,10 +38,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/study/ping', [StudyTimeController::class, 'ping'])
         ->name('study.ping');
 
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // ✅ PROFILE
+    Route::get('/profile', [ProfileController::class, 'index'])
+        ->name('profile.index');
 
+    Route::get('/profile/edit', [ProfileController::class, 'edit'])
+        ->name('profile.edit');
+
+    Route::patch('/profile', [ProfileController::class, 'update'])
+        ->name('profile.update');
+
+    Route::delete('/profile', [ProfileController::class, 'destroy'])
+        ->name('profile.destroy');
+
+        
     Route::get('/vocab', [VocabularyController::class, 'index'])->name('vocab.index');
     Route::get('/vocab/create', [VocabularyController::class, 'create'])->name('vocab.create');
     Route::post('/vocab', [VocabularyController::class, 'store'])->name('vocab.store');
@@ -63,9 +74,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/srs/toggle', [SrsController::class, 'toggle'])->name('srs.toggle');
     Route::get('/srs/next', [SrsController::class, 'nextReview'])
         ->name('srs.next');
-        Route::get('/srs/review/{progress}/json', [SrsController::class, 'reviewJson'])
-    ->name('srs.review.json');
-    
+    Route::get('/srs/review/{progress}/json', [SrsController::class, 'reviewJson'])
+        ->name('srs.review.json');
+
     Route::get('/topiks', [TopikController::class, 'index'])->name('topiks.index');
 });
 
