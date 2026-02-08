@@ -96,38 +96,50 @@ class SrsController extends Controller
     public function reviewAnswer(Request $request)
     {
         $data = $request->validate([
-            'progress_id' => 'required|integer',
+            'progress_id' => 'required|exists:user_vocab_progress,id',
             'result' => 'required|in:correct,wrong',
         ]);
-
-        $progress = UserVocabProgress::find($data['progress_id']);
-
-        // 🔥 nếu progress đã bị xoá → quay về danh sách ôn
-        if (!$progress) {
-            session()->forget('srs_review_order');
-            return response()->noContent(); // frontend tự next
-        }
-
+    
+        $progress = UserVocabProgress::findOrFail($data['progress_id']);
         $this->authorizeProgress($progress);
-
+    
+        // 🔁 XỬ LÝ SRS
         SrsService::answer(
             auth()->id(),
             $progress->vocabulary_id,
             $data['result'],
             'review'
         );
-
+    
         if ($data['result'] === 'correct') {
+            // ✅ BIẾT → XOÁ KHỎI DB
             $progress->delete();
         } else {
+            // ❌ CHƯA NHỚ → RESET
             $progress->update([
                 'step' => 0,
                 'next_review_at' => now(),
             ]);
         }
-
-        session()->forget('srs_review_order');
-
+    
+        /* ===============================
+           🔥 FIX LỖI TỪ CUỐI VẪN HIỆN
+        =============================== */
+    
+        $order = session('srs_review_order', []);
+    
+        // ❌ XÓA ID ĐÃ TRẢ LỜI KHỎI SESSION
+        $order = array_values(
+            array_filter($order, fn ($id) => $id != $progress->id)
+        );
+    
+        if (empty($order)) {
+            // ✅ HẾT ÔN → CLEAR SESSION
+            session()->forget('srs_review_order');
+        } else {
+            session(['srs_review_order' => $order]);
+        }
+    
         return response()->noContent(); // 204
     }
     /* ============================
