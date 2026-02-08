@@ -12,7 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        $schedule->command('review:daily-reminder')->dailyAt('07:00');
+        // Chạy mỗi ngày lúc 8h sáng
+        $schedule->command('review:daily-reminder')->dailyAt('08:00');
     }
 
     /**

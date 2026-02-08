@@ -11,37 +11,38 @@ use App\Mail\DailyReviewReminderMail;
 
 class SendDailyReviewReminder extends Command
 {
-    /**
-     * Tên command chạy bằng artisan
-     */
     protected $signature = 'review:daily-reminder';
 
-    /**
-     * Mô tả
-     */
-    protected $description = 'Gửi email nhắc học từ vựng mỗi ngày';
+    protected $description = 'Gửi email nhắc học từ vựng nếu có từ đến hạn';
 
-    /**
-     * Logic chính
-     */
     public function handle()
     {
         $today = Carbon::today();
 
-        // Lấy các từ đến hạn ôn
+        // Lấy tất cả từ đến hạn ôn (<= hôm nay)
         $progressByUser = UserVocabProgress::with('vocabulary')
+            ->whereNotNull('next_review_at')
             ->where('next_review_at', '<=', $today)
             ->get()
             ->groupBy('user_id');
 
+        // ❌ Không có từ → không gửi
         if ($progressByUser->isEmpty()) {
-            $this->info('🎉 Hôm nay không có từ nào cần ôn');
-            return;
+            $this->info('🎉 Không có từ nào cần ôn – không gửi mail');
+            return Command::SUCCESS;
         }
 
         foreach ($progressByUser as $userId => $items) {
+
+            // An toàn
+            if ($items->isEmpty()) {
+                continue;
+            }
+
             $user = User::find($userId);
-            if (!$user) continue;
+            if (!$user || !$user->email) {
+                continue;
+            }
 
             Mail::to($user->email)->send(
                 new DailyReviewReminderMail($user, $items)
@@ -51,5 +52,6 @@ class SendDailyReviewReminder extends Command
         }
 
         $this->info('✅ Hoàn tất gửi mail nhắc học');
+        return Command::SUCCESS;
     }
 }

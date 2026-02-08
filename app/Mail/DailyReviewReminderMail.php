@@ -15,7 +15,7 @@ class DailyReviewReminderMail extends Mailable
 
     public function __construct($user, $items)
     {
-        $this->user = $user;
+        $this->user  = $user;
         $this->items = $items;
     }
 

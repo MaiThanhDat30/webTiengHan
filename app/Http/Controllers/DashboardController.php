@@ -9,6 +9,7 @@ use Carbon\Carbon;
 /**
  * MODELS
  */
+
 use App\Models\LearningLog;
 use App\Models\UserVocabProgress;
 use App\Models\Idiom;
@@ -190,12 +191,16 @@ class DashboardController extends Controller
         };
 
         /* =====================================================
-         | 6️⃣ IDIOM GỢI Ý THEO LEVEL
+         | 6️⃣ IDIOM GỢI Ý 
          ===================================================== */
+        $seed = now()->toDateString();
+
         $idiomSuggestions = Cache::remember(
-            "idiom_level_{$level}",
+            "idiom_random_{$seed}",
             86400,
-            fn() => Idiom::where('level', $level)->limit(5)->get()
+            fn() => Idiom::inRandomOrder()
+                ->limit(5)
+                ->get()
         );
 
         /* =====================================================
