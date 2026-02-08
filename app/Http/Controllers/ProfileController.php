@@ -43,12 +43,18 @@ class ProfileController extends Controller
        🧠 MỨC ĐỘ NHỚ
     ========================= */
 
-        $memoryLevels = UserVocabProgress::where('user_id', $userId)
+        $memoryLevels = LearningLog::select(
+            'vocabulary_id',
+            DB::raw('MAX("interval") as max_interval')
+        )
+            ->where('user_id', $userId)
+            ->where('action', 'review')
+            ->groupBy('vocabulary_id')
             ->get()
-            ->groupBy(fn($p) => match (true) {
-                $p->step >= 3 => 'long',   // 7–14–30 ngày
-                $p->step >= 1 => 'mid',    // 1–3 ngày
-                default       => 'new',    // mới
+            ->groupBy(fn($item) => match (true) {
+                $item->max_interval >= 14 => 'long',
+                $item->max_interval >= 3  => 'mid',
+                default                  => 'new',
             });
 
         /* =========================
