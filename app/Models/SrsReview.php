@@ -13,7 +13,12 @@ class SrsReview extends Model
         'user_id',
         'vocabulary_id',
         'topic_id',
+        'step',
         'wrong_count',
         'next_review_at',
     ];
+    public function vocabulary()
+    {
+        return $this->belongsTo(Vocabulary::class);
+    }
 }

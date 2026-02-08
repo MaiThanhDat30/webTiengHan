@@ -5,61 +5,48 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\UserVocabProgress;
 use App\Models\LearningLog;
-
+use Illuminate\Http\Response;
+use App\Services\SrsService;
 class SrsController extends Controller
 {
     /* ============================
-       📘 HỌC TỪ MỚI
+       📘 HỌC TỪ MỚI (FLASHCARD)
     ============================ */
 
     public function answer(Request $request)
     {
         $data = $request->validate([
             'vocabulary_id' => 'required|exists:vocabularies,id',
-            'topic_id' => 'required|exists:topics,id',
-            'index' => 'required|integer',
             'result' => 'required|in:correct,wrong',
         ]);
 
-        // Ghi log học
-        $this->logLearning(
+        SrsService::answer(
+            auth()->id(),
             $data['vocabulary_id'],
-            'learn',
-            $data['result']
+            $data['result'],
+            'learn'
         );
 
-        if ($data['result'] === 'wrong') {
-            // ❌ CHƯA THUỘC → LƯU VÀO ÔN TẬP (NẾU CHƯA CÓ)
-            UserVocabProgress::firstOrCreate(
-                [
-                    'user_id' => auth()->id(),
-                    'vocabulary_id' => $data['vocabulary_id'],
-                ],
-                [
-                    'step' => 0,
-                    'next_review_at' => now(),
-                ]
-            );
-        } else {
-            // ✅ ĐÃ THUỘC → XOÁ KHỎI ÔN (NẾU TỪNG LƯU)
-            UserVocabProgress::where('user_id', auth()->id())
-                ->where('vocabulary_id', $data['vocabulary_id'])
-                ->delete();
-        }
-
-        // 👉 LUÔN SANG TỪ MỚI
-        return redirect(
-            route('topics.flashcard', $data['topic_id']) .
-            '?index=' . ($data['index'] + 1)
-        );
+        return response()->noContent(); // 204
     }
+
     /* ============================
        📚 DANH SÁCH ÔN
     ============================ */
 
     public function review()
     {
-        $reviews = $this->dueReviews()->get();
+        $reviews = $this->dueReviews()
+            ->orderBy('next_review_at')
+            ->get();
+
+        // 👉 tạo thứ tự tạm thời
+        $order = $reviews->pluck('id')->values()->toArray();
+
+        session([
+            'srs_review_order' => $order,
+        ]);
+
         return view('srs.review', compact('reviews'));
     }
 
@@ -68,65 +55,81 @@ class SrsController extends Controller
     ============================ */
 
     public function reviewCard(UserVocabProgress $progress)
-    {
+    {// 🔥 NẾU PROGRESS ĐÃ BỊ XOÁ → QUAY VỀ DANH SÁCH ÔN
+        if (!$progress->exists) {
+            return redirect()->route('srs.review');
+        }
         $this->authorizeProgress($progress);
 
+        // 🔥 PRELOAD TOÀN BỘ THẺ ÔN (1 QUERY)
+        $cards = $this->dueReviews()
+            ->get()
+            ->map(fn($p) => [
+                'id' => $p->id,
+                'word_kr' => $p->vocabulary->word_kr,
+                'word_vi' => $p->vocabulary->word_vi,
+            ])
+            ->values();
+
         return view('srs.flashcard', [
-            'progress' => $progress,
-            'vocabulary' => $progress->vocabulary,
+            'cards' => $cards,
         ]);
     }
+    public function reviewJson(UserVocabProgress $progress)
+    {
+        if (!$progress->exists) {
+            return response()->json(null, 204);
+        }
 
+        $this->authorizeProgress($progress);
+
+        return response()->json([
+            'id' => $progress->id,
+            'word_kr' => $progress->vocabulary->word_kr,
+            'word_vi' => $progress->vocabulary->word_vi,
+        ]);
+    }
     /* ============================
-       ✅ / ❌ TRẢ LỜI KHI ÔN
+       ✅ / ❌ KHI ÔN
     ============================ */
 
     public function reviewAnswer(Request $request)
-{
-    $data = $request->validate([
-        'progress_id' => 'required|exists:user_vocab_progress,id',
-        'result' => 'required|in:correct,wrong',
-    ]);
+    {
+        $data = $request->validate([
+            'progress_id' => 'required|integer',
+            'result' => 'required|in:correct,wrong',
+        ]);
 
-    $progress = UserVocabProgress::findOrFail($data['progress_id']);
-    $this->authorizeProgress($progress);
+        $progress = UserVocabProgress::find($data['progress_id']);
 
-    $this->logLearning(
-        $progress->vocabulary_id,
-        'review',
-        $data['result']
-    );
+        // 🔥 nếu progress đã bị xoá → quay về danh sách ôn
+        if (!$progress) {
+            session()->forget('srs_review_order');
+            return response()->noContent(); // frontend tự next
+        }
 
-    if ($data['result'] === 'correct') {
-        // ✅ BIẾT RỒI → XOÁ KHỎI ÔN
-        $progress->delete();
+        $this->authorizeProgress($progress);
 
-        $next = $this->dueReviews()->first();
+        SrsService::answer(
+            auth()->id(),
+            $progress->vocabulary_id,
+            $data['result'],
+            'review'
+        );
 
-        return $next
-            ? redirect()->route('srs.card', $next->id)
-            : redirect()->route('srs.review')
-                ->with('success', '🎉 Bạn đã hoàn thành lượt ôn hôm nay!');
+        if ($data['result'] === 'correct') {
+            $progress->delete();
+        } else {
+            $progress->update([
+                'step' => 0,
+                'next_review_at' => now(),
+            ]);
+        }
+
+        session()->forget('srs_review_order');
+
+        return response()->noContent(); // 204
     }
-
-    // ❌ CHƯA NHỚ → GIỮ LẠI
-    $this->resetProgress($progress);
-
-    // 👉 TÌM TỪ KHÁC (KHÔNG PHẢI CHÍNH NÓ)
-    $next = $this->dueReviews()
-        ->where('id', '!=', $progress->id)
-        ->first();
-
-    // 👉 NẾU CÒN TỪ KHÁC → SANG TỪ ĐÓ
-    if ($next) {
-        return redirect()->route('srs.card', $next->id);
-    }
-
-    // 👉 NẾU ĐÂY LÀ TỪ CUỐI → QUAY VỀ DANH SÁCH ÔN
-    return redirect()->route('srs.review')
-        ->with('info', '📌 Từ này đã được giữ lại để ôn sau');
-}
-
     /* ============================
        ⏭️ LẤY TỪ ÔN TIẾP
     ============================ */
@@ -150,19 +153,24 @@ class SrsController extends Controller
             'vocabulary_id' => 'required|exists:vocabularies,id',
         ]);
 
-        $progress = UserVocabProgress::where('user_id', auth()->id())
-            ->where('vocabulary_id', $data['vocabulary_id'])
-            ->first();
+        $userId = auth()->id();
 
-        if ($progress) {
-            // ❌ Đã lưu → huỷ lưu
-            $progress->delete();
+        $exists = UserVocabProgress::where([
+            'user_id' => $userId,
+            'vocabulary_id' => $data['vocabulary_id'],
+        ])->exists();
+
+        if ($exists) {
+            UserVocabProgress::where([
+                'user_id' => $userId,
+                'vocabulary_id' => $data['vocabulary_id'],
+            ])->delete();
+
             return back()->with('unsaved', true);
         }
 
-        // ✅ Chưa lưu → lưu
         UserVocabProgress::create([
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
             'vocabulary_id' => $data['vocabulary_id'],
             'step' => 0,
             'next_review_at' => now(),
@@ -175,20 +183,6 @@ class SrsController extends Controller
        🧠 HELPERS
     ============================ */
 
-    private function getOrCreateProgress(int $vocabularyId): UserVocabProgress
-    {
-        return UserVocabProgress::firstOrCreate(
-            [
-                'user_id' => auth()->id(),
-                'vocabulary_id' => $vocabularyId,
-            ],
-            [
-                'step' => 0,
-                'next_review_at' => now(),
-            ]
-        );
-    }
-
     private function dueReviews()
     {
         return UserVocabProgress::with('vocabulary')
@@ -197,29 +191,8 @@ class SrsController extends Controller
             ->orderBy('next_review_at');
     }
 
-    private function resetProgress(UserVocabProgress $progress): void
-    {
-        $progress->update([
-            'step' => 0,
-            'next_review_at' => now(), // ✅ VẪN CÒN TRONG DANH SÁCH ÔN
-        ]);
-    }
-
     private function authorizeProgress(UserVocabProgress $progress): void
     {
         abort_if($progress->user_id !== auth()->id(), 403);
-    }
-
-    private function logLearning(
-        int $vocabularyId,
-        string $action,
-        string $result
-    ): void {
-        LearningLog::create([
-            'user_id' => auth()->id(),
-            'vocabulary_id' => $vocabularyId,
-            'action' => $action,
-            'result' => $result,
-        ]);
     }
 }
