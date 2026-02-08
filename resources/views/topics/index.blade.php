@@ -35,7 +35,7 @@
                             <span class="text-xs font-semibold
                                                bg-indigo-50 text-indigo-600
                                                px-3 py-1 rounded-full">
-                                {{ $topic->children->count() }} chủ đề con
+                                {{ $topic->children->count() }} chủ đề
                             </span>
                         </div>
 
