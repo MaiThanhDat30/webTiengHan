@@ -8,14 +8,23 @@ class ResendMailService
 {
     public static function send($to, $subject, $html)
     {
-        return Http::withToken(config('services.resend.key'))
+        $response = Http::withToken(config('services.resend.key'))
             ->post('https://api.resend.com/emails', [
-                'from' => config('mail.from.name') . ' <' . config('mail.from.address') . '>',
+                // EMAIL TEST CHÍNH THỨC CỦA RESEND
+                'from' => 'onboarding@resend.dev',
                 'to' => [$to],
                 'subject' => $subject,
                 'html' => $html,
             ]);
+
+        // DEBUG nếu gửi fail
+        if (! $response->successful()) {
+            logger()->error('Resend error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        }
+
+        return $response;
     }
 }
-
-
